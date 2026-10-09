@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rmexp"
+version = "0.1.0"
+description = "ReplaceMe depth-pruning experiments on Llama-3-8B (ReplaceMe code + pipeline)"
+requires-python = ">=3.10"
+dependencies = ["torch", "transformers", "peft", "bitsandbytes", "datasets", "accelerate", "safetensors",
+                "pandas", "numpy", "scipy", "pyyaml", "tqdm", "colorama"]
+
+[tool.setuptools]
+packages = ["rmexp", "ReplaceMe"]
