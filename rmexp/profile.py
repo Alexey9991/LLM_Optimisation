@@ -1,9 +1,4 @@
-"""Block profiles (ReplaceMe/distance_scored.py) and the block choice rules.
-
-A profile for window length k has 32 - k rows; row i is the 1-based block (i+1, i+1+k). The combined score
-is the mean rank of dist_act and dist_grad (lower = better), ties go to the lower dist_act -- the rule of
-Misha's pipeline. Several blocks are picked greedily: longer blocks first, `gap` kept layers between blocks.
-"""
+"""Block profiles and block choice: mean rank of dist_act and dist_grad, ties by dist_act; greedy for several blocks."""
 import gc
 import json
 import platform
@@ -25,7 +20,6 @@ def profile_csv(cfg, k: int) -> Path:
 
 
 def profile(cfg, rm, k: int, force: bool = False) -> pd.DataFrame:
-    """Profile every window of k layers (one card, nf4). Reuses the CSV on disk unless force=True."""
     path = profile_csv(cfg, k)
     if path.exists() and not force:
         print("profile on disk:", path)
@@ -54,7 +48,6 @@ def profile(cfg, rm, k: int, force: bool = False) -> pd.DataFrame:
 
 
 def ranked(p: pd.DataFrame) -> pd.DataFrame:
-    """Candidates sorted by the combined rank score (ties by dist_act); columns rank_act, rank_grad, score_ras."""
     p = p.copy()
     p["rank_act"] = p["dist_act"].rank(method="first") - 1
     p["rank_grad"] = p["dist_grad"].rank(method="first") - 1
@@ -69,13 +62,11 @@ def top1(p: pd.DataFrame) -> Tuple[int, int]:
 
 def pick_blocks(lengths: List[int], profiles: Dict[int, pd.DataFrame], gap: int = 1,
                 order_col: str = "score_ras") -> List[Tuple[int, int]]:
-    """Greedy: for every required length (longest first) take the best free window that keeps `gap` layers
-    from every block already chosen (its carrier must stay). Returns sorted 1-based blocks."""
     used, chosen = set(), []
     for L in sorted(lengths, reverse=True):
         r = ranked(profiles[L]) if order_col == "score_ras" else profiles[L].sort_values([order_col, "dist_act"])
         for s, e in zip(r["block_start"].astype(int), r["block_end"].astype(int)):
-            if set(range(s - gap, e + gap)) & used:          # would touch another block or its carrier
+            if set(range(s - gap, e + gap)) & used:
                 continue
             chosen.append((s, e))
             used |= set(range(s, e))
@@ -86,7 +77,7 @@ def pick_blocks(lengths: List[int], profiles: Dict[int, pd.DataFrame], gap: int 
 
 
 def rank_table(p: pd.DataFrame) -> pd.DataFrame:
-    """Rank (0 = best) of every window under every signal; r_score_cos follows the tie rule of `ranked`."""
+    """Rank of every window under every signal, 0 = best."""
     t = p[["block_start", "block_end"]].astype(int).copy()
     rank = lambda x: pd.Series(x).rank(method="first").astype(int).values - 1
     t["r_dist_act"] = rank(p["dist_act"])
@@ -102,7 +93,6 @@ def rank_table(p: pd.DataFrame) -> pd.DataFrame:
 
 
 def greedy_by_signal(lengths: List[int], tables: Dict[int, pd.DataFrame], col: str, gap: int = 1):
-    """The blocks a single signal would choose with the same greedy rule; tables come from rank_table."""
     used, chosen = set(), []
     for L in sorted(lengths, reverse=True):
         t = tables[L].sort_values([col, "r_dist_act"])

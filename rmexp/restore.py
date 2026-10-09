@@ -1,6 +1,4 @@
-"""Put the deleted layers back. Kept layers come from pruned + heal (LoRA merged), deleted layers from the base
-model. The carrier layers (the ones holding T in down_proj) either keep T^T W + LoRA delta, as in Misha's
-ras/restore.py, or get W_orig + LoRA delta (T removed)."""
+"""Deleted layers back from the base model; carriers keep T^T W + LoRA delta or get W_orig + LoRA delta."""
 import copy
 import gc
 from pathlib import Path
@@ -27,17 +25,16 @@ def set_decoder_layers(model, layers: nn.ModuleList) -> None:
 
 def restore_blocks(base_model_path: str, pruned_dir, adapter_dir, output_dir, blocks: List[Tuple[int, int]],
                    n_layers: int, remove_T: bool = False) -> Path:
-    """blocks are 1-based (start, end): 0-based layers start..end-1 were deleted, layer start-1 carries T.
-    Everything on CPU in bf16 (two full models in RAM, ~32 GB for 8B)."""
+    """CPU, bf16, two full models in RAM."""
     output_dir = Path(output_dir)
     deleted = sorted({l for s, e in blocks for l in range(s, e)})
     carriers = {s - 1 for s, _ in blocks}
     assert not carriers & set(deleted), (blocks, "a carrier layer is inside a deleted block")
-    kept = [o for o in range(n_layers) if o not in deleted]          # kept[p] = original index of pruned layer p
+    kept = [o for o in range(n_layers) if o not in deleted]
 
     pruned = AutoModelForCausalLM.from_pretrained(str(pruned_dir), dtype=torch.bfloat16, device_map="cpu")
     pruned_layers = get_decoder_layers(pruned)
-    w_t = {o: pruned_layers[p].mlp.down_proj.weight.detach().clone()      # T^T W before heal
+    w_t = {o: pruned_layers[p].mlp.down_proj.weight.detach().clone()
            for p, o in enumerate(kept) if o in carriers}
     healed = PeftModel.from_pretrained(pruned, str(adapter_dir)).merge_and_unload()
 
@@ -54,7 +51,7 @@ def restore_blocks(base_model_path: str, pruned_dir, adapter_dir, output_dir, bl
         if o in carriers:
             w = layer.mlp.down_proj.weight
             w_orig = base_layers[o].mlp.down_proj.weight
-            delta = w.data - w_t[o]                                    # ≈ B·A of the LoRA on the carrier
+            delta = w.data - w_t[o]
             print(f"restore: carrier {o}: |T^T W - W|/|W| = {((w_t[o] - w_orig).float().norm() / w_orig.float().norm()):.3f}, "
                   f"|LoRA|/|W| = {(delta.float().norm() / w_orig.float().norm()):.4f}"
                   + (" -> T removed" if remove_T else " -> T kept"))

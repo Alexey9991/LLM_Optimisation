@@ -1,5 +1,4 @@
-"""Result tables and the paired test. EM on 1319 questions has SE ~1.4 pt, so neighbours are compared with
-McNemar on the per-question predictions, never by the difference of two EM numbers."""
+"""Result tables and McNemar on per-question predictions."""
 import json
 import math
 from pathlib import Path
@@ -14,7 +13,7 @@ def load_result(path) -> Tuple[Dict[int, bool], dict]:
 
 
 def mcnemar(a: Dict[int, bool], b: Dict[int, bool]) -> dict:
-    """Exact McNemar on the discordant pairs; diff_pt = EM(A) - EM(B) in points with a normal 95% CI."""
+    """diff_pt = EM(A) - EM(B) in points, normal 95% CI, exact p."""
     ids = sorted(set(a) & set(b))
     n01 = sum(a[i] and not b[i] for i in ids)
     n10 = sum(b[i] and not a[i] for i in ids)
@@ -28,7 +27,7 @@ def mcnemar(a: Dict[int, bool], b: Dict[int, bool]) -> dict:
 
 
 def summary(runs: Dict[str, Tuple[Path, str]], reference: str = "fine-tuned") -> pd.DataFrame:
-    """runs: label -> (results json, blocks text). Every row is compared with `reference` by McNemar."""
+    """runs: label -> (results json, blocks text)."""
     res = {k: load_result(f) for k, (f, _) in runs.items() if Path(f).exists()}
     rows = []
     for k, (_, blocks) in runs.items():

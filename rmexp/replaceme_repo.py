@@ -1,12 +1,5 @@
-"""Import `ReplaceMe.distance_scored` and `ReplaceMe.lstsq_joint` from the ReplaceMe checkout and bind them to this
-project's calibration data and GPU placement.
-
-Two in-place fixes are applied to distance_scored.py (idempotent, with a backup next to the file):
-  * `hs = out.hidden_states[1:]` -- the original indexed hidden states from the embeddings, so every block's
-    signal was labelled one layer too late;
-  * three extra block signals (grad_contrib, grad_contrib_fro, grad_coher) next to dist_act / dist_grad. The
-    cosine score and the selected block do not change, the CSV only gets extra columns.
-"""
+"""Imports ReplaceMe.distance_scored / lstsq_joint, applies the two in-place fixes to distance_scored.py
+(hidden_states[1:], extra block signals), binds the calibration texts and the GPU placement."""
 import hashlib
 import importlib
 import inspect
@@ -31,8 +24,7 @@ def md5(path) -> str:
 
 
 class Loader:
-    """Stands in for AutoModelForCausalLM inside a ReplaceMe module: fixed GPU placement, frozen weights.
-    Gradients still reach the activations through enable_input_require_grads."""
+    """AutoModelForCausalLM stand-in: fixed device_map, frozen weights, activations still get gradients."""
 
     def __init__(self, device_map):
         self.device_map = device_map
@@ -42,7 +34,7 @@ class Loader:
             return AutoModelForCausalLM.from_pretrained(path, *args, **kw)
         kw["device_map"] = self.device_map
         model = AutoModelForCausalLM.from_pretrained(path, *args, **kw)
-        model.requires_grad_(False)          # otherwise backward allocates ~1 GB of grads for lm_head and embed_tokens
+        model.requires_grad_(False)
         model.enable_input_require_grads()
         dmap = getattr(model, "hf_device_map", None) or {"": str(next(model.parameters()).device)}
         print("device map:", dict(Counter(str(d) for d in dmap.values())),
@@ -62,7 +54,6 @@ def _fix_hidden_states_index(path: Path) -> bool:
     return True
 
 
-# (anchor, replacement) pairs; every anchor must occur exactly once or the file is left untouched
 _EDITS_3SCORES = [
     ("    acc_tay = [[] for _ in range(n_cand)]\n",
      "    acc_tay = [[] for _ in range(n_cand)]\n"
@@ -145,8 +136,7 @@ def _patch_3scores(path: Path) -> bool:
 
 
 def load_replaceme(cfg, patch_3scores: bool = True, lstsq_device_map=None) -> SimpleNamespace:
-    """Returns ns.ds (distance_scored) and ns.lj (lstsq_joint), patched and bound to GSM8K calibration texts.
-    Call again after a kernel restart; safe to call twice."""
+    """Returns a namespace with ds (distance_scored), lj (lstsq_joint), utils, signatures and md5s."""
     repo = Path(cfg.replaceme_repo).resolve()
     if str(repo) not in sys.path:
         sys.path.insert(0, str(repo))
@@ -173,12 +163,10 @@ def load_replaceme(cfg, patch_3scores: bool = True, lstsq_device_map=None) -> Si
     if patch_3scores:
         assert "grad_coher" in body
 
-    # calibration texts of this project, the same for the profile and for T
     ds.get_calib_dataloader = calibration_batches
     lj.get_calib_dataloader = calibration_batches
-    # profile on one card: with "auto" the hidden states come back to cuda:0 as copies and retain_grad gives None
+    # one card for the profile: with "auto" retain_grad on the hidden states gives None
     ds.AutoModelForCausalLM = Loader({"": 0})
-    # lstsq: every decoder layer on GPU0 so the block input and output are on one device, lm_head on GPU1
     if lstsq_device_map is None:
         lstsq_device_map = {"model": 0, "lm_head": 1} if torch.cuda.device_count() > 1 else {"": 0}
     lj.AutoModelForCausalLM = Loader(lstsq_device_map)

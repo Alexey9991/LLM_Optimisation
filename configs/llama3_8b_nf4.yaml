@@ -1,33 +1,25 @@
-# Llama-3-8B, 25 % of the layers removed, everything in nf4. The values reproduce the runs of October 2026
-# (baseline 10.77, SFT 59.59, block (22,30): T only 7.43, healed 50.11, restored 49.73 / 50.95 without T).
+replaceme_repo: .
+runs: /home/tnn/LLM_optimisatoin/runs_reproduce
+control_run: llama-3-8b-repo-nf4
+profiles_dir: profiles
 
-# paths
-replaceme_repo: .                                        # folder with ReplaceMe/ (this repo); absolute path for another checkout
-runs: /home/tnn/LLM_optimisatoin/runs_reproduce          # every run folder lives here
-control_run: llama-3-8b-repo-nf4                         # baseline / SFT results and the SFT adapter
-profiles_dir: profiles                                   # runs/profiles/llama3_8b_skip{k}_gsm8k128_3scores.csv
-
-# model
 model_path: unsloth/llama-3-8b
 n_layers: 32
 precision: nf4
 seed: 42
 
-# calibration: GSM8K train "Question: ...\nAnswer: ...", the same texts for the profile and for T
 calib_size: 128
 calib_max_length: 256
-calib_batch_size: 2            # lstsq
-profile_batch_size: 1          # profile; the distances do not depend on it
+calib_batch_size: 2
+profile_batch_size: 1
 profile_answer_only_loss: true
 
-# T (lstsq_joint)
 alpha_act: 1.0
 alpha_grad: 0.5
 alpha_reg: 0.0
 identity_blend_threshold: 0.15
 norm_ratio_limit: 3.1
 
-# LoRA, shared by the SFT control and heal
 lora_rank: 8
 lora_alpha: 16
 lora_target_modules: [gate_proj, up_proj, down_proj]
@@ -40,31 +32,27 @@ train_epochs: 1.0
 train_warmup_steps: 20
 train_gradient_checkpointing: true
 train_optim: paged_adamw_8bit
-train_lm_head_on_second_gpu: false   # true for heals that OOM on one 11 GiB card (four carriers did)
+train_lm_head_on_second_gpu: false
 
-# evaluation: HF generate, greedy, 1319 GSM8K test questions
 eval_dataset: gsm8k
 eval_batch_size: 8
 eval_max_new_tokens: 256
 eval_limit: null
 
-# block choice
-gap: 1                         # kept layers between blocks
+gap: 1
 
-# Blocks are 1-based (start, end): 0-based layers start..end-1 are deleted, layer start-1 carries T.
-# One of: blocks (explicit), lengths (greedy from the profiles), top1_length (the best window of that length).
+# blocks are 1-based (start, end); one of: blocks, lengths, top1_length
 experiments:
-  - name: llama-3-8b-repo-nf4            # the control folder: num_A = 1, block from the 8-layer profile
+  - name: llama-3-8b-repo-nf4
     top1_length: 8
     restore_without_T: true
     eval_pruned: true
   - name: llama-3-8b-repo-numA2-nf4
-    lengths: [4, 4]                      # the series chose (19,23) (24,28)
+    lengths: [4, 4]
   - name: llama-3-8b-repo-numA3-nf4
-    lengths: [3, 3, 2]                   # (20,23) (24,27) (28,30)
+    lengths: [3, 3, 2]
   - name: llama-3-8b-repo-numA4-nf4
-    lengths: [2, 2, 2, 2]                # (18,20) (21,23) (24,26) (27,29)
-  # position vs fragmentation: the same four 2-layer blocks shifted up by one and by two layers
+    lengths: [2, 2, 2, 2]
   - name: llama-3-8b-numA4-shift19-nf4
     blocks: [[19, 21], [22, 24], [25, 27], [28, 30]]
   - name: llama-3-8b-numA4-shift20-nf4

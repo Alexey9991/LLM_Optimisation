@@ -1,4 +1,4 @@
-"""GSM8K evaluation with HF generate: greedy, batched, prompts sorted by length, predictions saved per question."""
+"""GSM8K evaluation with HF generate."""
 import gc
 import json
 import time
@@ -106,7 +106,6 @@ def result_path(results_dir, stage: str, precision: str, suffix_tag: str = "") -
 
 def run_evaluation(config, stage: str, model_path: str, adapter_path: Optional[str] = None,
                    suffix_tag: str = "", results_dir=None) -> dict:
-    """Evaluate one model (+ optional adapter) and write results/<stage><suffix>_<precision>.json with hw / extra."""
     results_dir = Path(results_dir or config.results_dir)
     results_dir.mkdir(parents=True, exist_ok=True)
     model, tokenizer = load_for_generation(model_path, adapter_path, config.precision)

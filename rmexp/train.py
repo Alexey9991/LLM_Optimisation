@@ -1,5 +1,4 @@
-"""LoRA training (r8 on the MLP projections, one epoch) with HF Trainer. The same function trains the SFT control
-on the full model and heals the pruned model; only the base model path differs."""
+"""LoRA training with HF Trainer: SFT control and heal share this function."""
 import gc
 import json
 from collections import Counter
@@ -42,8 +41,6 @@ def _gsm8k_dataset(tokenizer, max_length: int, limit=None):
 
 
 class LoggedTrainer(Trainer):
-    """Trainer that leaves log_history.json and train_meta.json next to the adapter."""
-
     def train(self, *args, **kwargs):
         out = super().train(*args, **kwargs)
         d = Path(self.args.output_dir).parent
@@ -72,7 +69,7 @@ def train_lora(config, model_path: str, adapter_dir: Path, epochs: Optional[floa
     model = AutoModelForCausalLM.from_pretrained(
         model_path, dtype=COMPUTE_DTYPE, device_map=device_map,
         quantization_config=quantization_config(config.precision))
-    dmap = getattr(model, "hf_device_map", None) or {"": 0}      # not set when everything is on one device
+    dmap = getattr(model, "hf_device_map", None) or {"": 0}
     print("device map:", dict(Counter(str(d) for d in dmap.values())))
     model.config.use_cache = False
     if is_quantized(config.precision):
@@ -92,8 +89,7 @@ def train_lora(config, model_path: str, adapter_dir: Path, epochs: Optional[floa
     adapter_dir = Path(adapter_dir)
     adapter_dir.mkdir(parents=True, exist_ok=True)
 
-    # Two GPUs are visible (prune uses both) but training runs on one. Without these flags the Trainer wraps
-    # the 4-bit model in nn.DataParallel -> illegal memory access.
+    # two GPUs visible, training on one: keeps the Trainer from wrapping the 4-bit model in DataParallel
     model.is_parallelizable = True
     model.model_parallel = True
     targs = TrainingArguments(
@@ -117,7 +113,7 @@ def train_lora(config, model_path: str, adapter_dir: Path, epochs: Optional[floa
         dataloader_pin_memory=False,
     )
     _ = targs.device
-    targs._n_gpu = 1                       # one card, no DataParallel
+    targs._n_gpu = 1
     assert targs.n_gpu == 1
 
     for i in range(torch.cuda.device_count()):

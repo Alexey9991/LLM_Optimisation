@@ -1,6 +1,4 @@
-# Arguments of ReplaceMe.lstsq_joint.lstsq for one pruning run outside the pipeline:
-#   python scripts/lstsq_from_yaml.py configs/lstsq_joint_gsm8k.yaml
-# The same T as the pipeline (block (22,30), 128 GSM8K texts, alpha_grad 0.5, identity blend 0.15).
+# arguments of ReplaceMe.lstsq_joint.lstsq; python scripts/lstsq_from_yaml.py configs/lstsq_joint_gsm8k.yaml
 model_path: unsloth/llama-3-8b
 dataset: openai/gsm8k
 dataset_column: text
@@ -10,11 +8,11 @@ batch_size: 2
 max_length: 256
 layers_to_skip: 8
 use_4bit: true
-selected_blocks: [[22, 30]]          # 1-based (start, end); several blocks -> several T
-num_A: 1                             # only the output folder suffix when selected_blocks is given
+selected_blocks: [[22, 30]]
+num_A: 1
 alpha: 0.0
 alpha_act: 1.0
 alpha_grad: 0.5
 identity_blend_threshold: 0.15
 save_transform_only: true
-save_path: /home/tnn/LLM_optimisatoin/runs_reproduce/standalone/pruned     # -> <save_path>_ReplaceMe_joint_lstsq_1
+save_path: /home/tnn/LLM_optimisatoin/runs_reproduce/standalone/pruned

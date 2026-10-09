@@ -1,14 +1,4 @@
-"""One experiment = one set of blocks removed from the model. Stages are idempotent: a stage whose output is on
-disk is skipped, so a notebook cell can be re-run after a kernel restart.
-
-Folder layout under cfg.runs:
-  <control_run>/results/baseline_nf4.json, sft_nf4.json; <control_run>/sft_adapter/
-  <experiment>/plan.json
-  <experiment>/pruned_ReplaceMe_joint_lstsq_1/            (+ blocks.json with norm ratios)
-  <experiment>/heal_adapter/                              (+ log_history.json, train_meta.json)
-  <experiment>/restored/, restored_noT/                   (deleted after evaluation when asked)
-  <experiment>/results/pruned_T_only_nf4.json, pruned_healed_nf4.json, replaceme_nf4.json, replaceme_noT_nf4.json
-"""
+"""Experiment: prune, heal, restore, evaluate; every stage skips what is already on disk."""
 import gc
 import json
 import shutil
@@ -37,7 +27,6 @@ def needed_lengths(exps: List[ExperimentSpec]) -> List[int]:
 
 def resolve_blocks(cfg: Cfg, spec: ExperimentSpec, profiles: Optional[Dict[int, object]] = None,
                    rm=None) -> List[Tuple[int, int]]:
-    """Blocks of an experiment: from the spec, from plan.json on disk, or chosen from the profiles."""
     run_dir = cfg.runs_dir / spec.name
     plan_file = run_dir / "plan.json"
     if spec.blocks is not None:
@@ -72,7 +61,6 @@ class Experiment:
         self.results_dir.mkdir(parents=True, exist_ok=True)
         self.pruned_dir = self.run_dir / "pruned_ReplaceMe_joint_lstsq_1"
         self.heal_adapter_dir = self.run_dir / "heal_adapter"
-        # a pruned model already in this folder must have been cut at the same blocks
         meta = self.pruned_dir / "blocks.json"
         if meta.exists():
             m = json.load(open(meta))
@@ -106,12 +94,10 @@ class Experiment:
         run_evaluation(self.cfg, stage, str(model_path), adapter and str(adapter), suffix_tag, self.results_dir)
         gc.collect(); torch.cuda.empty_cache()
 
-    # ---- stages, in order --------------------------------------------------------------------------------
     def prune(self, rm) -> Path:
         return _prune(self.cfg, rm, self.blocks, self.run_dir)
 
     def eval_pruned(self):
-        """T only, before heal."""
         self._eval("pruned_T_only", self.pruned_dir)
 
     def heal(self) -> Path:
@@ -149,8 +135,6 @@ class Experiment:
             print("deleted", d)
 
     def run_all(self, rm, delete_restored: bool = True):
-        """The whole chain in one process. Fine when memory comes back between stages; otherwise run the
-        stage cells of the notebook with a kernel restart between them."""
         self.prune(rm)
         if self.spec.eval_pruned:
             self.eval_pruned()
@@ -167,7 +151,6 @@ class Experiment:
                 for s in ("pruned_T_only", "pruned_healed", "replaceme", "replaceme_noT")}
 
 
-# ---- control runs on the full model ---------------------------------------------------------------------
 def eval_baseline(cfg: Cfg):
     if result_path(cfg.results_dir, "baseline", cfg.precision).exists():
         print("baseline on disk")
@@ -177,7 +160,6 @@ def eval_baseline(cfg: Cfg):
 
 
 def train_sft(cfg: Cfg):
-    """LoRA on the full model with the heal protocol: the fine-tuned reference."""
     if (cfg.sft_adapter_dir / "adapter_config.json").exists():
         print("SFT adapter on disk:", cfg.sft_adapter_dir)
         return cfg.sft_adapter_dir

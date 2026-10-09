@@ -1,4 +1,4 @@
-"""GSM8K prompts, training texts and the exact-match metric (the `####` answer, falling back to the last number)."""
+"""GSM8K prompts, training texts, exact-match metric."""
 import re
 
 from datasets import load_dataset
@@ -53,8 +53,7 @@ def build_prompts(dataset):
 
 
 def calibration_batches(dataset, dataset_subset, dataset_column, dataset_size, batch_size, tokenizer):
-    """Drop-in for ReplaceMe.utils.get_calib_dataloader: the first `dataset_size` GSM8K train items as
-    "Question: ...\\nAnswer: ..." texts, batched, drop_last. Same texts as every earlier run."""
+    """Replacement for ReplaceMe.utils.get_calib_dataloader: first dataset_size GSM8K train items, drop_last."""
     assert dataset == "openai/gsm8k", dataset
     data = load_dataset("openai/gsm8k", "main", split=dataset_subset)
     texts = [TRAIN_TEMPLATE.format(question=q, answer=a)

@@ -1,7 +1,7 @@
-"""Command-line entry for the same stages as the notebook, one stage per process (clean GPU every time).
+"""Pipeline stages from the shell, one stage per process.
 
   python scripts/run_stage.py configs/llama3_8b_nf4.yaml baseline
-  python scripts/run_stage.py configs/llama3_8b_nf4.yaml sft            # train + eval
+  python scripts/run_stage.py configs/llama3_8b_nf4.yaml sft
   python scripts/run_stage.py configs/llama3_8b_nf4.yaml profile
   python scripts/run_stage.py configs/llama3_8b_nf4.yaml plan
   python scripts/run_stage.py configs/llama3_8b_nf4.yaml prune   [--only NAME]

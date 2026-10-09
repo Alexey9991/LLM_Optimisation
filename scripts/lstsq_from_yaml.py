@@ -1,5 +1,4 @@
-"""Run ReplaceMe.lstsq_joint.lstsq from a YAML of its arguments, with this project's GPU placement
-(decoder layers on GPU0, lm_head on GPU1, frozen weights) and the GSM8K calibration texts.
+"""ReplaceMe.lstsq_joint.lstsq from a YAML of its arguments.
 
   python scripts/lstsq_from_yaml.py configs/lstsq_joint_gsm8k.yaml
   python scripts/lstsq_from_yaml.py configs/lstsq_joint_gsm8k.yaml --blocks 20,22 23,25 26,28 29,31 --save_path /tmp/x/pruned

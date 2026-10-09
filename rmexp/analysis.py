@@ -1,5 +1,4 @@
-"""CPU-only analysis: how the block signals agree with each other, what each signal would have chosen,
-and the per-token gradient diagnostic that showed grad_contrib to be an artefact of the answer-only loss."""
+"""Signal correlations, rank tables, per-token gradient diagnostic."""
 from typing import Dict, List
 
 import numpy as np
@@ -26,8 +25,7 @@ def top_k(p: pd.DataFrame, k: int = 3) -> Dict[str, list]:
 
 def series_tables(cfg, exps_blocks: Dict[str, List[tuple]], profiles: Dict[int, pd.DataFrame],
                   em: Dict[str, float] = None):
-    """Rank tables per window length with the series' blocks marked, the rank of every used block under every
-    signal, and the greedy choice of every signal. exps_blocks: experiment name -> blocks."""
+    """exps_blocks: experiment name -> blocks."""
     em = em or {}
     tables = {k: rank_table(p) for k, p in profiles.items()}
     for name, blocks in exps_blocks.items():
@@ -64,9 +62,7 @@ def series_tables(cfg, exps_blocks: Dict[str, List[tuple]], profiles: Dict[int, 
 
 
 def grad_contrib_diagnostic(cfg, rm, windows: List[int], n_texts: int = 16, skip: int = 8) -> pd.DataFrame:
-    """Per-token grad_contrib split into question / answer tokens for a few windows (candidate i = block
-    (i+1, i+1+skip)). With the answer-only loss the question tokens get gradient only through attention
-    from above, so near the top ||g_out|| -> 0 and the per-token ratio explodes. Fresh kernel, ~5 min."""
+    """Per-token grad_contrib split into question / answer tokens; candidate i = block (i+1, i+1+skip)."""
     import gc
     import torch
     from transformers import AutoTokenizer, BitsAndBytesConfig

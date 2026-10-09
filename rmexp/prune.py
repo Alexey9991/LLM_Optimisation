@@ -1,5 +1,4 @@
-"""Prune with ReplaceMe/lstsq_joint.py: delete the blocks and fold one T per block into down_proj of the layer
-before it. Every T is fitted on the original model in one pass (the blocks do not see each other)."""
+"""lstsq_joint call, norm ratio of every carrier, blocks.json."""
 import gc
 import io
 import json
@@ -35,7 +34,6 @@ def read_tensor(directory, name: str) -> torch.Tensor:
 
 
 def norm_ratios(cfg, pruned_dir, blocks: List[Tuple[int, int]]) -> List[float]:
-    """||T^T W|| / ||W|| of every carrier; the pruned model has its own (shifted) layer numbering."""
     out, removed = [], 0
     base = model_dir(cfg.model_path)
     for s, e in blocks:
@@ -47,7 +45,6 @@ def norm_ratios(cfg, pruned_dir, blocks: List[Tuple[int, int]]) -> List[float]:
 
 
 def prune(cfg, rm, blocks: List[Tuple[int, int]], run_dir: Path) -> Path:
-    """Returns run_dir / pruned_ReplaceMe_joint_lstsq_1 (the suffix comes from lstsq's num_A=1 naming)."""
     run_dir = Path(run_dir)
     pruned_dir = run_dir / "pruned_ReplaceMe_joint_lstsq_1"
     blocks = [tuple(b) for b in blocks]
@@ -66,7 +63,7 @@ def prune(cfg, rm, blocks: List[Tuple[int, int]], run_dir: Path) -> Path:
                               dataset_subset="train", use_4bit=cfg.precision == "nf4",
                               save_path=str(run_dir / "pruned"), alpha=cfg.alpha_reg, alpha_act=cfg.alpha_act,
                               alpha_grad=cfg.alpha_grad, identity_blend_threshold=cfg.identity_blend_threshold,
-                              num_A=1,                       # only the folder suffix
+                              num_A=1,
                               selected_blocks=blocks, save_transform_only=True)
             assert Path(out).resolve() == pruned_dir.resolve(), (out, pruned_dir)
         finally:
