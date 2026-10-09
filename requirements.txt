@@ -1,0 +1,14 @@
+torch>=2.6
+transformers>=4.51
+peft>=0.14
+bitsandbytes>=0.45
+accelerate
+datasets>=3.6
+safetensors
+huggingface_hub
+pandas
+numpy
+scipy
+pyyaml
+tqdm
+colorama
