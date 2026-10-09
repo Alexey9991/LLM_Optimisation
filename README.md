@@ -77,8 +77,7 @@ EM on 1319 questions has SE ≈ 1.4 pt; models are compared with McNemar on per-
 | fine-tuned, LoRA on the full model | — | 59.59 |
 | pruned, T only | (22,30) | 7.43 |
 | pruned + heal, 24 layers | (22,30) | 50.11 |
-| restored with T | (22,30) | 49.73 |
-| restored without T | (22,30) | 50.95 |
+| restored| (22,30) | 49.73 |
 | restored | (19,23) (24,28) | 44.43 |
 | restored | (20,23) (24,27) (28,30) | 48.29 |
 | restored | (18,20) (21,23) (24,26) (27,29) | 39.65 |
